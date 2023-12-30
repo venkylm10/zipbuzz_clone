@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:intl/intl.dart';
-import 'package:zipbuzz/constants/assets.dart';
-import 'package:zipbuzz/constants/colors.dart';
-import 'package:zipbuzz/constants/styles.dart';
-import 'package:zipbuzz/models/event_model.dart';
+import 'package:zipbuzz/utils/constants/assets.dart';
+import 'package:zipbuzz/utils/constants/colors.dart';
+import 'package:zipbuzz/utils/constants/styles.dart';
+import 'package:zipbuzz/models/events/event_model.dart';
 
 class EventDetails extends StatefulWidget {
   const EventDetails({
@@ -22,29 +22,10 @@ class _EventDetailsState extends State<EventDetails> {
   var startTime = "";
   var endTime = "";
 
-  void getStartTime() {
-    if (widget.event.startTime.isNotEmpty) {
-      final start = DateTime.parse(widget.event.startTime).toLocal();
-      final noon = start.hour >= 12 ? true : false;
-      startTime =
-          "${start.hour >= 13 ? start.hour - 12 : start.hour}:${start.minute} ${noon ? "PM" : "AM"}";
-    }
-  }
-
-  void getEndTime() {
-    if (widget.event.endTime!.isNotEmpty) {
-      final end = DateTime.parse(widget.event.endTime!).toLocal();
-      final noon = end.hour >= 12 ? true : false;
-      endTime =
-          "${end.hour >= 13 ? end.hour - 12 : end.hour}:${end.minute} ${noon ? "PM" : "AM"}";
-    }
-  }
-
   void initialiseTime() {
-    getStartTime();
-    if (widget.event.endTime != null) {
-      getEndTime();
-    }
+    startTime = widget.event.startTime;
+      endTime = widget.event.endTime;
+    
     setState(() {});
   }
 
@@ -117,23 +98,23 @@ class _EventDetailsState extends State<EventDetails> {
             ),
             const SizedBox(width: 8),
             Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.center,
               mainAxisAlignment: MainAxisAlignment.spaceEvenly,
               children: [
                 Text(
-                  "Gala Convention Center",
+                  widget.event.location,
                   softWrap: true,
                   style: AppStyles.h4.copyWith(
                     fontWeight: FontWeight.w500,
                   ),
                 ),
-                Text(
-                  "420 Gala St, San Jose 95125",
-                  softWrap: true,
-                  style: AppStyles.h5.copyWith(
-                    color: AppColors.lightGreyColor,
-                  ),
-                ),
+                // Text(
+                //   "420 Gala St, San Jose 95125",
+                //   softWrap: true,
+                //   style: AppStyles.h5.copyWith(
+                //     color: AppColors.lightGreyColor,
+                //   ),
+                // ),
               ],
             )
           ],

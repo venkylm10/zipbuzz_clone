@@ -2,10 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:zipbuzz/constants/assets.dart';
-import 'package:zipbuzz/constants/colors.dart';
-import 'package:zipbuzz/constants/styles.dart';
-import 'package:zipbuzz/controllers/new_event_controller.dart';
+import 'package:zipbuzz/controllers/events/edit_event_controller.dart';
+import 'package:zipbuzz/controllers/events/new_event_controller.dart';
+import 'package:zipbuzz/utils/constants/assets.dart';
+import 'package:zipbuzz/utils/constants/colors.dart';
+import 'package:zipbuzz/utils/constants/styles.dart';
 import 'package:zipbuzz/services/image_picker.dart';
 
 class EventBannerSelector extends ConsumerStatefulWidget {
@@ -14,8 +15,7 @@ class EventBannerSelector extends ConsumerStatefulWidget {
   });
 
   @override
-  ConsumerState<EventBannerSelector> createState() =>
-      _EventBannerSelectorState();
+  ConsumerState<EventBannerSelector> createState() => _EventBannerSelectorState();
 }
 
 class _EventBannerSelectorState extends ConsumerState<EventBannerSelector> {
@@ -27,6 +27,7 @@ class _EventBannerSelectorState extends ConsumerState<EventBannerSelector> {
       setState(() {
         image = File(pickedImage.path);
         ref.read(newEventProvider.notifier).updateBannerImage(image!);
+        ref.read(editEventControllerProvider.notifier).updateBannerImage(image!);
       });
     }
   }
@@ -34,6 +35,7 @@ class _EventBannerSelectorState extends ConsumerState<EventBannerSelector> {
   @override
   void initState() {
     ref.read(newEventProvider.notifier).bannerImage = null;
+    ref.read(editEventControllerProvider.notifier).bannerImage = null;
     super.initState();
   }
 
@@ -73,8 +75,7 @@ class _EventBannerSelectorState extends ConsumerState<EventBannerSelector> {
                       ],
                     ),
                   ),
-                  Divider(
-                      color: AppColors.greyColor.withOpacity(0.2), height: 1),
+                  Divider(color: AppColors.greyColor.withOpacity(0.2), height: 1),
                   Padding(
                     padding: const EdgeInsets.all(10),
                     child: Text(

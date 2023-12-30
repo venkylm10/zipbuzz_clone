@@ -2,22 +2,22 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher_string.dart';
-import 'package:zipbuzz/constants/assets.dart';
-import 'package:zipbuzz/constants/colors.dart';
-import 'package:zipbuzz/constants/styles.dart';
-import 'package:zipbuzz/controllers/user_controller.dart';
+import 'package:zipbuzz/utils/constants/assets.dart';
+import 'package:zipbuzz/utils/constants/colors.dart';
+import 'package:zipbuzz/utils/constants/styles.dart';
+import 'package:zipbuzz/controllers/profile/user_controller.dart';
 
 class UserSocials extends ConsumerWidget {
   const UserSocials({super.key});
 
   String getTwitterId(String profileLink) {
-    try {
-      if (profileLink.isNotEmpty) {
-        final temp = profileLink.split('/');
+    if (profileLink.isNotEmpty) {
+      final temp = profileLink.split('/');
+      if (temp.length >= 4) {
         return temp[3].split('?').first;
+      } else {
+        return "";
       }
-    } catch (e) {
-      debugPrint(e.toString());
     }
     return "";
   }
@@ -27,13 +27,13 @@ class UserSocials extends ConsumerWidget {
   }
 
   String getLinkedInId(String profileLink) {
-    try {
-      if (profileLink.isNotEmpty) {
-        final temp = profileLink.split('/');
+    if (profileLink.isNotEmpty) {
+      final temp = profileLink.split('/');
+      if (temp.length >= 5) {
         return temp[4].split('?').first;
+      } else {
+        return "";
       }
-    } catch (e) {
-      debugPrint(e.toString());
     }
     return "";
   }
@@ -55,7 +55,7 @@ class UserSocials extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final user = ref.watch(userProvider)!;
+    final user = ref.watch(userProvider);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -91,8 +91,7 @@ class UserSocials extends ConsumerWidget {
     );
   }
 
-  Row buildHyperLink(String iconPath, String label, String value,
-      {void Function()? onTap}) {
+  Row buildHyperLink(String iconPath, String label, String value, {void Function()? onTap}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [

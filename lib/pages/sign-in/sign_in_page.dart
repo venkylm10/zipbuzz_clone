@@ -2,12 +2,15 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:zipbuzz/constants/assets.dart';
-import 'package:zipbuzz/constants/colors.dart';
-import 'package:zipbuzz/constants/styles.dart';
-import 'package:zipbuzz/controllers/home_tab_controller.dart';
-import 'package:zipbuzz/main.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:zipbuzz/controllers/navigation_controller.dart';
+import 'package:zipbuzz/utils/constants/assets.dart';
+import 'package:zipbuzz/utils/constants/colors.dart';
+import 'package:zipbuzz/utils/constants/database_constants.dart';
+import 'package:zipbuzz/utils/constants/styles.dart';
+import 'package:zipbuzz/controllers/home/home_tab_controller.dart';
 import 'package:zipbuzz/services/auth_services.dart';
+import 'package:zipbuzz/widgets/auth_gate.dart';
 import 'package:zipbuzz/widgets/common/snackbar.dart';
 
 class SignInSheet extends ConsumerWidget {
@@ -15,9 +18,15 @@ class SignInSheet extends ConsumerWidget {
   const SignInSheet({super.key});
 
   void googleSignIn(WidgetRef ref) {
-    ref.read(authServicesProvider).signInWithGoogle();
-    navigatorKey.currentState!.pop();
     ref.read(homeTabControllerProvider.notifier).updateIndex(0);
+    ref.read(authServicesProvider).signInWithGoogle();
+  }
+
+  void signInGuestUser(WidgetRef ref) {
+    GetStorage().write(BoxConstants.guestUser, true);
+    GetStorage().write(BoxConstants.id, 1);
+    ref.read(homeTabControllerProvider.notifier).updateIndex(0);
+    NavigationController.routeOff(route: AuthGate.id);
   }
 
   @override
@@ -66,7 +75,7 @@ class SignInSheet extends ConsumerWidget {
               ),
               const SizedBox(height: 8),
               GestureDetector(
-                onTap: showSnackBar,
+                onTap: () => signInGuestUser(ref),
                 child: Container(
                   height: 56,
                   width: double.infinity,

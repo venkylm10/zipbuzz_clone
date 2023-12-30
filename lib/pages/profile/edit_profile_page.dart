@@ -2,18 +2,14 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:zipbuzz/constants/assets.dart';
-import 'package:zipbuzz/constants/colors.dart';
-import 'package:zipbuzz/constants/styles.dart';
-import 'package:zipbuzz/controllers/user_controller.dart';
-import 'package:zipbuzz/main.dart';
-import 'package:zipbuzz/models/user_model.dart';
-import 'package:zipbuzz/services/db_services.dart';
+import 'package:zipbuzz/controllers/profile/edit_profile_controller.dart';
+import 'package:zipbuzz/utils/constants/assets.dart';
+import 'package:zipbuzz/utils/constants/colors.dart';
+import 'package:zipbuzz/utils/constants/styles.dart';
 import 'package:zipbuzz/services/image_picker.dart';
-import 'package:zipbuzz/services/location_services.dart';
-import 'package:zipbuzz/services/storage_services.dart';
 import 'package:zipbuzz/widgets/common/back_button.dart';
 import 'package:zipbuzz/widgets/common/custom_text_field.dart';
+import 'package:zipbuzz/widgets/common/loader.dart';
 import 'package:zipbuzz/widgets/common/snackbar.dart';
 
 class EditProfilePage extends ConsumerStatefulWidget {
@@ -21,29 +17,14 @@ class EditProfilePage extends ConsumerStatefulWidget {
   const EditProfilePage({super.key});
 
   @override
-  ConsumerState<ConsumerStatefulWidget> createState() =>
-      _EditProfilePageState();
+  ConsumerState<ConsumerStatefulWidget> createState() => _EditProfilePageState();
 }
 
 class _EditProfilePageState extends ConsumerState<EditProfilePage> {
-  late UserModel userClone;
-  late TextEditingController nameController;
-  late TextEditingController aboutController;
-  late TextEditingController zipcodeController;
-  late TextEditingController mobileController;
-  late TextEditingController handleController;
-  late TextEditingController linkedinIdControler;
-  late TextEditingController instagramIdController;
-  late TextEditingController twitterIdController;
-  File? image;
+  late EditProfileController editProfileController;
 
   void updateInterest(String interest) {
-    if (userClone.interests.contains(interest)) {
-      userClone.interests.remove(interest);
-      setState(() {});
-      return;
-    }
-    userClone.interests.add(interest);
+    editProfileController.updateInterest(interest);
     setState(() {});
   }
 
@@ -51,75 +32,25 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
     final pickedImage = await ImageServices().pickImage();
     if (pickedImage != null) {
       setState(() {
-        image = File(pickedImage.path);
+        editProfileController.updateImage(File(pickedImage.path));
       });
     }
   }
 
-  void initialise() {
-    userClone = ref.read(userProvider)!.getClone();
-    nameController.text = userClone.name;
-    aboutController.text = userClone.about;
-    zipcodeController.text = userClone.zipcode;
-    mobileController.text = userClone.mobileNumber;
-    handleController.text = userClone.handle;
-    linkedinIdControler.text = userClone.linkedinId ?? "";
-    instagramIdController.text = userClone.instagramId ?? "";
-    twitterIdController.text = userClone.twitterId ?? "";
-  }
-
   void saveChanges() async {
-    debugPrint("updating user");
-    try {
-      await ref
-          .read(locationServicesProvider)
-          .updateUserLocationFromZipcode(zipcodeController.text.trim());
-      String? newImageUrl;
-      if (image != null) {
-        newImageUrl = await ref
-            .read(storageServicesProvider)
-            .uploadProfilePic(uid: userClone.uid, file: image!);
-      }
-
-      final updatedUser = ref.read(userProvider)!.copyWith(
-            name: nameController.text.trim(),
-            about: aboutController.text.trim(),
-            mobileNumber: mobileController.text.trim(),
-            imageUrl: newImageUrl,
-            handle: handleController.text.trim(),
-            linkedinId: linkedinIdControler.text.trim(),
-            instagramId: instagramIdController.text.trim(),
-            twitterId: twitterIdController.text.trim(),
-            interests: userClone.interests,
-          );
-      await ref
-          .read(dbServicesProvider)
-          .updateUser(updatedUser.uid, updatedUser.toMap());
-      ref.read(userProvider.notifier).update((state) => updatedUser);
-      navigatorKey.currentState!.pop();
-      showSnackBar(message: "Updated successfully");
-    } catch (e) {
-      debugPrint("Error updating user: $e");
-      showSnackBar(message: "Error updating user, try later..");
-    }
+    await editProfileController.saveChanges();
   }
 
   @override
   void initState() {
-    nameController = TextEditingController();
-    aboutController = TextEditingController();
-    zipcodeController = TextEditingController();
-    mobileController = TextEditingController();
-    handleController = TextEditingController();
-    linkedinIdControler = TextEditingController();
-    instagramIdController = TextEditingController();
-    twitterIdController = TextEditingController();
-    initialise();
+    editProfileController = ref.read(editProfileControllerProvider);
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
+    editProfileController = ref.watch(editProfileControllerProvider);
+    final loadingText = ref.watch(loadingTextProvider);
     return Scaffold(
       appBar: AppBar(
         title: Text(
@@ -143,12 +74,12 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               const SizedBox(height: 8),
               Text("Name:", style: AppStyles.h4),
               const SizedBox(height: 4),
-              CustomTextField(controller: nameController),
+              CustomTextField(controller: editProfileController.nameController),
               const SizedBox(height: 8),
               Text("About me:", style: AppStyles.h4),
               const SizedBox(height: 4),
               CustomTextField(
-                controller: aboutController,
+                controller: editProfileController.aboutController,
                 maxLength: 550,
                 showCounter: true,
               ),
@@ -163,28 +94,30 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               Text("Zipcode:", style: AppStyles.h4),
               const SizedBox(height: 4),
               CustomTextField(
-                controller: zipcodeController,
+                controller: editProfileController.zipcodeController,
                 prefixIcon: Padding(
                   padding: const EdgeInsets.only(left: 16),
                   child: SvgPicture.asset(Assets.icons.geo_mini, height: 20),
                 ),
                 maxLength: 6,
+                maxLines: 1,
               ),
               const SizedBox(height: 8),
               Text("Mobile no:", style: AppStyles.h4),
               const SizedBox(height: 4),
               CustomTextField(
-                controller: mobileController,
+                controller: editProfileController.mobileController,
                 prefixIcon: Padding(
                   padding: const EdgeInsets.only(left: 16),
                   child: SvgPicture.asset(Assets.icons.telephone, height: 20),
                 ),
+                maxLines: 1,
               ),
               const SizedBox(height: 8),
               Text("ZipBuzz handle:", style: AppStyles.h4),
               const SizedBox(height: 4),
               CustomTextField(
-                controller: handleController,
+                controller: editProfileController.handleController,
                 prefixIcon: Padding(
                   padding: const EdgeInsets.only(left: 16),
                   child: SvgPicture.asset(Assets.icons.at, height: 20),
@@ -202,7 +135,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               Text("LinkedIn", style: AppStyles.h4),
               const SizedBox(height: 4),
               CustomTextField(
-                controller: linkedinIdControler,
+                controller: editProfileController.linkedinIdControler,
                 prefixIcon: Padding(
                   padding: const EdgeInsets.only(left: 16),
                   child: Image.asset(Assets.icons.linkedin, height: 20),
@@ -212,7 +145,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               Text("Instagram", style: AppStyles.h4),
               const SizedBox(height: 4),
               CustomTextField(
-                controller: instagramIdController,
+                controller: editProfileController.instagramIdController,
                 prefixIcon: Padding(
                   padding: const EdgeInsets.only(left: 16),
                   child: Image.asset(Assets.icons.instagram, height: 20),
@@ -222,7 +155,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               Text("Twitter", style: AppStyles.h4),
               const SizedBox(height: 4),
               CustomTextField(
-                controller: twitterIdController,
+                controller: editProfileController.twitterIdController,
                 prefixIcon: Padding(
                   padding: const EdgeInsets.only(left: 16),
                   child: Image.asset(Assets.icons.twitter, height: 20),
@@ -268,27 +201,44 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               Divider(color: AppColors.borderGrey.withOpacity(0.5), height: 1),
               const SizedBox(height: 24),
               InkWell(
-                onTap: () => saveChanges(),
+                onTap: () {
+                  if (loadingText == null) {
+                    saveChanges();
+                  }
+                },
                 child: Ink(
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: AppColors.primaryColor,
                     borderRadius: BorderRadius.circular(24),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      SvgPicture.asset(Assets.icons.save),
-                      const SizedBox(width: 8),
-                      Text(
-                        "Save Changes",
-                        style: AppStyles.h3.copyWith(
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white,
+                  child: loadingText == null
+                      ? Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            SvgPicture.asset(Assets.icons.save),
+                            const SizedBox(width: 8),
+                            Text(
+                              "Save Changes",
+                              style: AppStyles.h3.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
+                        )
+                      : Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Text(
+                              loadingText,
+                              style: AppStyles.h3.copyWith(
+                                fontWeight: FontWeight.w600,
+                                color: Colors.white,
+                              ),
+                            ),
+                          ],
                         ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ],
@@ -314,13 +264,13 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
                     Positioned.fill(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(60),
-                        child: image != null
+                        child: editProfileController.image != null
                             ? Image.file(
-                                image!,
+                                editProfileController.image!,
                                 fit: BoxFit.cover,
                               )
                             : Image.network(
-                                userClone.imageUrl,
+                                editProfileController.userClone.imageUrl,
                                 fit: BoxFit.cover,
                               ),
                       ),
@@ -352,37 +302,38 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
               ),
             ),
             const SizedBox(height: 24),
-            Container(
-              padding: const EdgeInsets.symmetric(
-                horizontal: 10,
-                vertical: 6,
-              ),
-              decoration: BoxDecoration(
-                color: AppColors.primaryColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  SvgPicture.asset(
-                    Assets.icons.check,
-                    colorFilter: const ColorFilter.mode(
-                      AppColors.primaryColor,
-                      BlendMode.srcIn,
+            if (editProfileController.userClone.isAmbassador)
+              Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: AppColors.primaryColor.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    SvgPicture.asset(
+                      Assets.icons.check,
+                      colorFilter: const ColorFilter.mode(
+                        AppColors.primaryColor,
+                        BlendMode.srcIn,
+                      ),
+                      height: 20,
                     ),
-                    height: 20,
-                  ),
-                  const SizedBox(width: 5),
-                  Text(
-                    userClone.position,
-                    style: AppStyles.h5.copyWith(
-                      color: AppColors.primaryColor,
+                    const SizedBox(width: 5),
+                    Text(
+                      "Brand Ambassador",
+                      style: AppStyles.h5.copyWith(
+                        color: AppColors.primaryColor,
+                      ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
           ],
         ),
       ],
@@ -390,7 +341,7 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
   }
 
   Wrap buildInterests() {
-    final myInterests = userClone.interests;
+    final myInterests = editProfileController.userClone.interests;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -403,13 +354,11 @@ class _EditProfilePageState extends ConsumerState<EditProfilePage> {
             return GestureDetector(
               onTap: () => updateInterest(interest.key),
               child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(16),
                   color: present ? color.withOpacity(0.1) : AppColors.bgGrey,
-                  border:
-                      !present ? Border.all(color: AppColors.borderGrey) : null,
+                  border: !present ? Border.all(color: AppColors.borderGrey) : null,
                 ),
                 child: Row(
                   mainAxisSize: MainAxisSize.min,

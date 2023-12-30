@@ -1,18 +1,22 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/svg.dart';
-import 'package:zipbuzz/constants/assets.dart';
-import 'package:zipbuzz/constants/colors.dart';
-import 'package:zipbuzz/constants/styles.dart';
-import 'package:zipbuzz/controllers/new_event_controller.dart';
-import 'package:zipbuzz/main.dart';
+import 'package:palette_generator/palette_generator.dart';
+import 'package:zipbuzz/utils/constants/assets.dart';
+import 'package:zipbuzz/utils/constants/colors.dart';
+import 'package:zipbuzz/utils/constants/defaults.dart';
+import 'package:zipbuzz/utils/constants/globals.dart';
+import 'package:zipbuzz/utils/constants/styles.dart';
+import 'package:zipbuzz/controllers/events/new_event_controller.dart';
 import 'package:zipbuzz/pages/event_details/event_details_page.dart';
 import 'package:zipbuzz/pages/events/create_event_form.dart';
 import 'package:zipbuzz/widgets/common/broad_divider.dart';
 import 'package:zipbuzz/widgets/create_event/add_hosts.dart';
 import 'package:zipbuzz/widgets/create_event/event_banner_selector.dart';
 import 'package:zipbuzz/widgets/create_event/event_type_and_capacity.dart';
-import 'package:zipbuzz/widgets/create_event/guest_list.dart';
+import 'package:zipbuzz/widgets/create_event/guest_list_type.dart';
 import 'package:zipbuzz/widgets/create_event/photos.dart';
 
 class CreateEvent extends ConsumerStatefulWidget {
@@ -26,16 +30,12 @@ class _CreateEventState extends ConsumerState<CreateEvent> {
   String category = allInterests.entries.first.key;
   late TextEditingController nameController;
   late TextEditingController descriptionController;
-
-  void updateCoHosts() async {
-    await ref.read(newEventProvider.notifier).updateCoHosts();
-  }
+  int randInt = 0;
 
   @override
   void initState() {
     nameController = TextEditingController();
     descriptionController = TextEditingController();
-    updateCoHosts();
     super.initState();
   }
 
@@ -61,17 +61,13 @@ class _CreateEventState extends ConsumerState<CreateEvent> {
           broadDivider(),
           const EventTypeAndCapacity(),
           broadDivider(),
-          const CreateEventGuestList(),
+          const CreateEventGuestListType(),
           broadDivider(),
           const AddEventPhotos(),
           broadDivider(),
           InkWell(
             onTap: () {
-              navigatorKey.currentState!.pushNamed(EventDetailsPage.id,
-                  arguments: {
-                    'event': ref.read(newEventProvider),
-                    'isPreview': true
-                  });
+              showPreview();
             },
             child: Ink(
               padding: const EdgeInsets.all(12),
@@ -99,5 +95,41 @@ class _CreateEventState extends ConsumerState<CreateEvent> {
         ],
       ),
     );
+  }
+
+  Future<Color> getDominantColor() async {
+    final previewBanner = ref.read(newEventProvider.notifier).bannerImage;
+    final defaultBanners = ref.read(defaultsProvider).bannerPaths;
+    randInt = Random().nextInt(defaultBanners.length);
+    Color dominantColor = Colors.green;
+    if (previewBanner != null) {
+      final image = FileImage(previewBanner);
+      final PaletteGenerator generator = await PaletteGenerator.fromImageProvider(
+        image,
+      );
+      dominantColor = generator.dominantColor!.color;
+    } else {
+      final image = AssetImage(defaultBanners[randInt]);
+      final PaletteGenerator generator = await PaletteGenerator.fromImageProvider(
+        image,
+      );
+      dominantColor = generator.dominantColor!.color;
+    }
+    return dominantColor;
+  }
+
+  void showPreview() async {
+    if (ref.read(newEventProvider.notifier).validateNewEvent()) {
+      final dominantColor = await getDominantColor();
+      navigatorKey.currentState!.pushNamed(
+        EventDetailsPage.id,
+        arguments: {
+          'event': ref.read(newEventProvider),
+          'isPreview': true,
+          'dominantColor': dominantColor,
+          'randInt': randInt,
+        },
+      );
+    }
   }
 }

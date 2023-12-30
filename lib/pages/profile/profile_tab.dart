@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:zipbuzz/constants/assets.dart';
-import 'package:zipbuzz/constants/colors.dart';
-import 'package:zipbuzz/constants/styles.dart';
-import 'package:zipbuzz/controllers/home_tab_controller.dart';
-import 'package:zipbuzz/controllers/user_controller.dart';
-import 'package:zipbuzz/main.dart';
-import 'package:zipbuzz/models/user_model.dart';
+import 'package:zipbuzz/utils/constants/assets.dart';
+import 'package:zipbuzz/utils/constants/colors.dart';
+import 'package:zipbuzz/utils/constants/globals.dart';
+import 'package:zipbuzz/utils/constants/styles.dart';
+import 'package:zipbuzz/controllers/home/home_tab_controller.dart';
+import 'package:zipbuzz/controllers/profile/user_controller.dart';
+import 'package:zipbuzz/models/user/user_model.dart';
 import 'package:zipbuzz/pages/profile/edit_profile_page.dart';
 import 'package:zipbuzz/services/auth_services.dart';
 import 'package:zipbuzz/widgets/common/snackbar.dart';
@@ -25,8 +25,7 @@ class ProfileTab extends ConsumerStatefulWidget {
 class _ProfileTabState extends ConsumerState<ProfileTab> {
   var isMounted = true;
   void editProfile(UserModel user) async {
-    await navigatorKey.currentState!
-        .pushNamed(EditProfilePage.id, arguments: {"user": user});
+    await navigatorKey.currentState!.pushNamed(EditProfilePage.id, arguments: {"user": user});
     if (isMounted) {
       setState(() {});
     }
@@ -37,7 +36,6 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     showSnackBar(message: "Logged out successfully!");
   }
 
-
   @override
   void dispose() {
     isMounted = false;
@@ -46,11 +44,10 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.watch(userProvider)!;
+    final user = ref.watch(userProvider);
     return PopScope(
       canPop: false,
-      onPopInvoked: (value) =>
-          ref.read(homeTabControllerProvider.notifier).backToHomeTab(),
+      onPopInvoked: (value) => ref.read(homeTabControllerProvider.notifier).backToHomeTab(),
       child: Scaffold(
         appBar: AppBar(
           title: Text(
@@ -81,8 +78,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                       const SizedBox(width: 4),
                       Text(
                         "Edit",
-                        style:
-                            AppStyles.h5.copyWith(color: AppColors.greyColor),
+                        style: AppStyles.h5.copyWith(color: AppColors.greyColor),
                       )
                     ],
                   ),
@@ -107,46 +103,14 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                       children: [
                         Text(
                           user.name,
-                          style: AppStyles.h1
-                              .copyWith(fontWeight: FontWeight.bold),
+                          style: AppStyles.h1.copyWith(fontWeight: FontWeight.bold),
                         ),
                         Text(
                           user.handle,
-                          style:
-                              AppStyles.h4.copyWith(color: AppColors.greyColor),
+                          style: AppStyles.h4.copyWith(color: AppColors.greyColor),
                         ),
                         const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 6,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.primaryColor.withOpacity(0.1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.start,
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              SvgPicture.asset(
-                                Assets.icons.check,
-                                colorFilter: const ColorFilter.mode(
-                                  AppColors.primaryColor,
-                                  BlendMode.srcIn,
-                                ),
-                                height: 20,
-                              ),
-                              const SizedBox(width: 5),
-                              Text(
-                                user.position,
-                                style: AppStyles.h5.copyWith(
-                                  color: AppColors.primaryColor,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
+                        if (user.isAmbassador) buildAmbassadorTag(),
                       ],
                     ),
                     ClipRRect(
@@ -163,33 +127,25 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 const SizedBox(height: 24),
                 const UserStats(),
                 const SizedBox(height: 24),
-                Divider(
-                    color: AppColors.borderGrey.withOpacity(0.5), height: 1),
+                Divider(color: AppColors.borderGrey.withOpacity(0.5), height: 1),
                 const SizedBox(height: 24),
                 Text(
                   "Personal details",
                   style: AppStyles.h5.copyWith(color: AppColors.lightGreyColor),
                 ),
                 const SizedBox(height: 16),
-                buildDetailTile(
-                    Assets.icons.geo_mini, "Zipcode:", user.zipcode),
+                buildDetailTile(Assets.icons.geo_mini, "Zipcode:", user.zipcode),
                 const SizedBox(height: 4),
-                buildDetailTile(
-                    Assets.icons.telephone, "Mobile no:", user.mobileNumber),
+                buildDetailTile(Assets.icons.telephone, "Mobile no:", user.mobileNumber),
                 const SizedBox(height: 4),
-                buildDetailTile(Assets.icons.at, "ZipBuzz handle:", user.handle,
-                    handle: true),
+                buildDetailTile(Assets.icons.at, "ZipBuzz handle:", user.handle, handle: true),
                 const SizedBox(height: 24),
-                Divider(
-                    color: AppColors.borderGrey.withOpacity(0.5), height: 1),
+                Divider(color: AppColors.borderGrey.withOpacity(0.5), height: 1),
                 const SizedBox(height: 24),
-
                 // User social links
                 const UserSocials(),
-
                 const SizedBox(height: 24),
-                Divider(
-                    color: AppColors.borderGrey.withOpacity(0.5), height: 1),
+                Divider(color: AppColors.borderGrey.withOpacity(0.5), height: 1),
                 const SizedBox(height: 24),
                 Text(
                   "My Interests",
@@ -198,8 +154,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                 const SizedBox(height: 16),
                 buildInterests(user, ref),
                 const SizedBox(height: 24),
-                Divider(
-                    color: AppColors.borderGrey.withOpacity(0.5), height: 1),
+                Divider(color: AppColors.borderGrey.withOpacity(0.5), height: 1),
                 const SizedBox(height: 24),
                 Text(
                   "About me",
@@ -211,8 +166,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                   style: AppStyles.h4,
                 ),
                 const SizedBox(height: 24),
-                Divider(
-                    color: AppColors.borderGrey.withOpacity(0.5), height: 1),
+                Divider(color: AppColors.borderGrey.withOpacity(0.5), height: 1),
                 const SizedBox(height: 24),
                 const SettingsTiles(),
                 const SizedBox(height: 24),
@@ -221,13 +175,11 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
                   child: Ink(
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                        color: AppColors.borderGrey,
-                        borderRadius: BorderRadius.circular(24)),
+                        color: AppColors.borderGrey, borderRadius: BorderRadius.circular(24)),
                     child: Center(
                       child: Text(
                         "Log out",
-                        style:
-                            AppStyles.h3.copyWith(fontWeight: FontWeight.w600),
+                        style: AppStyles.h3.copyWith(fontWeight: FontWeight.w600),
                       ),
                     ),
                   ),
@@ -241,8 +193,42 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     );
   }
 
+  Container buildAmbassadorTag() {
+    return Container(
+      padding: const EdgeInsets.symmetric(
+        horizontal: 10,
+        vertical: 6,
+      ),
+      decoration: BoxDecoration(
+        color: AppColors.primaryColor.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          SvgPicture.asset(
+            Assets.icons.check,
+            colorFilter: const ColorFilter.mode(
+              AppColors.primaryColor,
+              BlendMode.srcIn,
+            ),
+            height: 20,
+          ),
+          const SizedBox(width: 5),
+          Text(
+            "Brand Ambassador",
+            style: AppStyles.h5.copyWith(
+              color: AppColors.primaryColor,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   Wrap buildInterests(UserModel user, WidgetRef ref) {
-    final interests = ref.watch(userProvider)!.interests;
+    final interests = ref.watch(userProvider).interests;
     return Wrap(
       spacing: 8,
       runSpacing: 8,
@@ -273,8 +259,7 @@ class _ProfileTabState extends ConsumerState<ProfileTab> {
     );
   }
 
-  Row buildDetailTile(String iconPath, String label, String value,
-      {bool handle = false}) {
+  Row buildDetailTile(String iconPath, String label, String value, {bool handle = false}) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [

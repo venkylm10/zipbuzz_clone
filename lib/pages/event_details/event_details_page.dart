@@ -1,31 +1,44 @@
-import 'dart:math';
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_staggered_grid_view/flutter_staggered_grid_view.dart';
-import 'package:palette_generator/palette_generator.dart';
-import 'package:zipbuzz/constants/assets.dart';
-import 'package:zipbuzz/constants/colors.dart';
-import 'package:zipbuzz/constants/defaults.dart';
-import 'package:zipbuzz/constants/styles.dart';
-import 'package:zipbuzz/controllers/events_controller.dart';
-import 'package:zipbuzz/controllers/new_event_controller.dart';
-import 'package:zipbuzz/main.dart';
-import 'package:zipbuzz/models/event_model.dart';
-import 'package:zipbuzz/models/user_model.dart';
+import 'package:get_storage/get_storage.dart';
+import 'package:zipbuzz/controllers/events/edit_event_controller.dart';
+import 'package:zipbuzz/services/db_services.dart';
+import 'package:zipbuzz/utils/constants/database_constants.dart';
+import 'package:zipbuzz/widgets/event_details_page/event_host_guest_list.dart';
+import 'package:zipbuzz/widgets/event_details_page/friends_registered_box.dart';
+import 'package:zipbuzz/utils/constants/assets.dart';
+import 'package:zipbuzz/utils/constants/colors.dart';
+import 'package:zipbuzz/utils/constants/defaults.dart';
+import 'package:zipbuzz/utils/constants/globals.dart';
+import 'package:zipbuzz/utils/constants/styles.dart';
+import 'package:zipbuzz/controllers/events/new_event_controller.dart';
+import 'package:zipbuzz/models/events/event_model.dart';
+import 'package:zipbuzz/models/user/user_model.dart';
 import 'package:zipbuzz/widgets/common/attendee_numbers.dart';
 import 'package:zipbuzz/widgets/common/event_chip.dart';
 import 'package:zipbuzz/widgets/event_details_page/event_buttons.dart';
 import 'package:zipbuzz/widgets/event_details_page/event_details.dart';
 import 'package:zipbuzz/widgets/event_details_page/event_hosts.dart';
 import 'package:zipbuzz/widgets/event_details_page/event_qrcode.dart';
+import 'package:zipbuzz/widgets/event_details_page/guest_list.dart';
 
 class EventDetailsPage extends ConsumerStatefulWidget {
   static const id = 'event/details';
   final EventModel event;
+  final int? randInt;
   final bool? isPreview;
-  const EventDetailsPage(
-      {super.key, required this.event, this.isPreview = false});
+  final bool? rePublish;
+  final Color dominantColor;
+  const EventDetailsPage({
+    super.key,
+    required this.event,
+    this.randInt = 0,
+    this.isPreview = false,
+    this.rePublish = false,
+    required this.dominantColor,
+  });
 
   @override
   ConsumerState<EventDetailsPage> createState() => _EventDetailsPageState();
@@ -33,44 +46,11 @@ class EventDetailsPage extends ConsumerStatefulWidget {
 
 class _EventDetailsPageState extends ConsumerState<EventDetailsPage> {
   final bodyScrollController = ScrollController();
-  Color dominantColor = Colors.white;
   Color eventColor = Colors.white;
-  String dummyText = '';
   double horizontalMargin = 16;
   List<String> defaultBanners = [];
-  int rand = 0;
   int maxImages = 0;
-  UserModel? host;
   List<UserModel> coHosts = [];
-
-  Future<void> getDominantColor() async {
-    final previewBanner = ref.read(newEventProvider.notifier).bannerImage;
-    if (widget.isPreview!) {
-      if (previewBanner != null) {
-        final image = FileImage(previewBanner);
-        final PaletteGenerator generator =
-            await PaletteGenerator.fromImageProvider(
-          image,
-        );
-        dominantColor = generator.dominantColor!.color;
-        setState(() {});
-      }
-      final image = AssetImage(defaultBanners[rand]);
-      final PaletteGenerator generator =
-          await PaletteGenerator.fromImageProvider(
-        image,
-      );
-      dominantColor = generator.dominantColor!.color;
-      setState(() {});
-    } else {
-      final PaletteGenerator generator =
-          await PaletteGenerator.fromImageProvider(
-        NetworkImage(widget.event.bannerPath),
-      );
-      dominantColor = generator.dominantColor!.color;
-      setState(() {});
-    }
-  }
 
   void getEventColor() {
     eventColor = getInterestColor(widget.event.iconPath);
@@ -88,73 +68,24 @@ class _EventDetailsPageState extends ConsumerState<EventDetailsPage> {
     return true;
   }
 
-  void getHostData(String uid) async {
-    host = await ref
-        .read(eventsControllerProvider)
-        .getHostData(widget.event.hostId);
-    setState(() {});
-  }
-
-  void getCoHosts(List<String> coHostIds) async {
-    coHosts = await ref
-        .read(eventsControllerProvider)
-        .getCoHosts(widget.event.coHostIds);
-    setState(() {});
+  void initialise() async {
+    maxImages = ref.read(newEventProvider.notifier).maxImages;
+    defaultBanners = ref.read(defaultsProvider).bannerPaths;
+    await ref.read(dbServicesProvider).getEventRequestMembers(widget.event.id);
+    getEventColor();
   }
 
   @override
   void initState() {
-    getHostData(widget.event.hostId);
-    getCoHosts(widget.event.coHostIds);
-    maxImages = ref.read(newEventProvider.notifier).maxImages;
-    Random random = Random();
-    defaultBanners = ref.read(defaultsProvider).defaultBannerPaths;
-    rand = random.nextInt(defaultBanners.length);
-    getHostData(widget.event.hostId);
-    getDominantColor();
-    getEventColor();
+    initialise();
     super.initState();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: dominantColor,
-      appBar: AppBar(
-        shadowColor: Colors.transparent,
-        backgroundColor: Colors.transparent,
-        leadingWidth: 0,
-        leading: const SizedBox(),
-        actions: [
-          Padding(
-            padding: const EdgeInsets.only(left: 16),
-            child: GestureDetector(
-              onTap: () => navigatorKey.currentState!.pop(),
-              child: Container(
-                height: 40,
-                width: 40,
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.4),
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: ClipRRect(
-                  borderRadius: BorderRadius.circular(8),
-                  child: BackdropFilter(
-                    filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
-                    child: Center(
-                      child: Icon(
-                        Icons.arrow_back,
-                        color: dominantColor,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-          const Expanded(child: SizedBox()),
-        ],
-      ),
+      backgroundColor: widget.dominantColor,
+      appBar: buildAppBar(),
       extendBodyBehindAppBar: true,
       body: NotificationListener<ScrollUpdateNotification>(
         onNotification: (notification) => animateMargin(),
@@ -169,115 +100,147 @@ class _EventDetailsPageState extends ConsumerState<EventDetailsPage> {
                 child: AnimatedPadding(
                   padding: EdgeInsets.symmetric(horizontal: horizontalMargin),
                   duration: const Duration(milliseconds: 100),
-                  child: Container(
-                    padding: const EdgeInsets.all(16),
-                    width: double.infinity,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Column(
-                      mainAxisAlignment: MainAxisAlignment.start,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          widget.event.title,
-                          style: AppStyles.h2
-                              .copyWith(fontWeight: FontWeight.w600),
-                          softWrap: true,
+                  child: Stack(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(20),
                         ),
-                        const SizedBox(height: 10),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.start,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          mainAxisSize: MainAxisSize.min,
                           children: [
+                            Text(
+                              widget.event.title,
+                              style: AppStyles.h2.copyWith(fontWeight: FontWeight.w600),
+                              softWrap: true,
+                            ),
+                            const SizedBox(height: 10),
                             Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                EventChip(
-                                  eventColor: eventColor,
-                                  interest: widget.event.category,
-                                  iconPath: widget.event.iconPath,
+                                Row(
+                                  children: [
+                                    EventChip(
+                                      eventColor: eventColor,
+                                      interest: widget.event.category,
+                                      iconPath: widget.event.iconPath,
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Consumer(builder: (context, ref, child) {
+                                      var attendees = 1;
+                                      if (widget.isPreview!) {
+                                        attendees = ref.watch(newEventProvider).attendees;
+                                      } else if (widget.rePublish!) {
+                                        attendees =
+                                            ref.watch(editEventControllerProvider).attendees;
+                                      } else {
+                                        attendees = widget.event.attendees;
+                                      }
+
+                                      var total = 1;
+
+                                      if (widget.isPreview!) {
+                                        total = ref.watch(newEventProvider).capacity;
+                                      } else if (widget.rePublish!) {
+                                        total = ref.watch(editEventControllerProvider).capacity;
+                                      } else {
+                                        total = widget.event.capacity;
+                                      }
+                                      return AttendeeNumbers(
+                                        attendees: attendees,
+                                        total: total,
+                                        backgroundColor: AppColors.greyColor.withOpacity(0.1),
+                                      );
+                                    }),
+                                  ],
                                 ),
-                                const SizedBox(width: 10),
-                                AttendeeNumbers(
-                                  attendees: widget.event.attendees,
-                                  total: widget.event.capacity,
-                                  backgroundColor:
-                                      AppColors.greyColor.withOpacity(0.1),
-                                ),
+                                const EventQRCode(),
                               ],
                             ),
-                            const EventQRCode(),
-                          ],
-                        ),
-                        const SizedBox(height: 16),
-                        Divider(
-                          color: AppColors.greyColor.withOpacity(0.2),
-                          thickness: 0,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          "Event details",
-                          style: AppStyles.h5
-                              .copyWith(color: AppColors.lightGreyColor),
-                        ),
-                        const SizedBox(height: 16),
-                        EventDetails(event: widget.event),
-                        const SizedBox(height: 16),
-                        Divider(
-                          color: AppColors.greyColor.withOpacity(0.2),
-                          thickness: 0,
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
                             const SizedBox(height: 16),
-                            Text(
-                              "Hosts",
-                              style: AppStyles.h5
-                                  .copyWith(color: AppColors.lightGreyColor),
+                            Divider(
+                              color: AppColors.greyColor.withOpacity(0.2),
+                              thickness: 0,
                             ),
                             const SizedBox(height: 16),
-                            if (host != null)
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  EventHosts(
-                                    host: host!,
-                                    coHosts: coHosts,
-                                  ),
-                                  const SizedBox(height: 16),
-                                  Divider(
-                                    color: AppColors.greyColor.withOpacity(0.2),
-                                    thickness: 0,
-                                  ),
-                                ],
-                              )
+                            Text(
+                              "Event details",
+                              style: AppStyles.h5.copyWith(color: AppColors.lightGreyColor),
+                            ),
+                            const SizedBox(height: 16),
+                            EventDetails(event: widget.event),
+                            const SizedBox(height: 16),
+                            Divider(
+                              color: AppColors.greyColor.withOpacity(0.2),
+                              thickness: 0,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              "About",
+                              style: AppStyles.h5.copyWith(color: AppColors.lightGreyColor),
+                            ),
+                            const SizedBox(height: 16),
+                            Text(widget.event.about, style: AppStyles.h4),
+                            const SizedBox(height: 16),
+                            Divider(
+                              color: AppColors.greyColor.withOpacity(0.2),
+                              thickness: 0,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              "Sneak peaks",
+                              style: AppStyles.h5.copyWith(color: AppColors.lightGreyColor),
+                            ),
+                            const SizedBox(height: 16),
+                            buildPhotos(widget.isPreview!, ref),
+                            const SizedBox(height: 16),
+                            Divider(
+                              color: AppColors.greyColor.withOpacity(0.2),
+                              thickness: 0,
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const SizedBox(height: 16),
+                                Text(
+                                  "Hosts",
+                                  style: AppStyles.h5.copyWith(color: AppColors.lightGreyColor),
+                                ),
+                                const SizedBox(height: 16),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    EventHosts(
+                                      event: widget.event,
+                                      isPreview: widget.isPreview!,
+                                    ),
+                                    const SizedBox(height: 16),
+                                    Divider(
+                                      color: AppColors.greyColor.withOpacity(0.2),
+                                      thickness: 0,
+                                    ),
+                                  ],
+                                )
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              "Guest list (${widget.event.eventMembers.length})",
+                              style: AppStyles.h5.copyWith(color: AppColors.lightGreyColor),
+                            ),
+                            const SizedBox(height: 16),
+                            buildGuestList(),
+                            const SizedBox(height: 16),
                           ],
                         ),
-                        const SizedBox(height: 16),
-                        Text(
-                          "About",
-                          style: AppStyles.h5
-                              .copyWith(color: AppColors.lightGreyColor),
-                        ),
-                        const SizedBox(height: 16),
-                        Text(widget.event.about, style: AppStyles.h4),
-                        const SizedBox(height: 16),
-                        Divider(
-                          color: AppColors.greyColor.withOpacity(0.2),
-                          thickness: 0,
-                        ),
-                        const SizedBox(height: 16),
-                        Text(
-                          "Sneak peaks",
-                          style: AppStyles.h5
-                              .copyWith(color: AppColors.lightGreyColor),
-                        ),
-                        const SizedBox(height: 16),
-                        buildPhotos(widget.isPreview!, ref),
-                      ],
-                    ),
+                      ),
+                      const FriendsRegisteredBox()
+                    ],
                   ),
                 ),
               ),
@@ -287,40 +250,161 @@ class _EventDetailsPageState extends ConsumerState<EventDetailsPage> {
         ),
       ),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton:
-          EventButtons(event: widget.event, isPreview: widget.isPreview),
+      floatingActionButton: EventButtons(
+        event: widget.event,
+        isPreview: widget.isPreview,
+        rePublish: widget.rePublish,
+      ),
+    );
+  }
+
+  Widget buildGuestList() {
+    final userId = GetStorage().read(BoxConstants.id);
+    if (widget.isPreview!) {
+      return EventGuestList(
+        guests: widget.event.eventMembers,
+      );
+    }
+    if (widget.event.hostId != userId) {
+      return EventGuestList(
+        guests: widget.event.eventMembers,
+      );
+    }
+    return EventHostGuestList(
+      guests: widget.event.eventMembers,
+      eventId: widget.event.id,
+    );
+  }
+
+  AppBar buildAppBar() {
+    return AppBar(
+      shadowColor: Colors.transparent,
+      backgroundColor: Colors.transparent,
+      leadingWidth: 0,
+      leading: const SizedBox(),
+      actions: [
+        Padding(
+          padding: const EdgeInsets.only(left: 16),
+          child: GestureDetector(
+            onTap: () => navigatorKey.currentState!.pop(),
+            child: Container(
+              height: 40,
+              width: 40,
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.4),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(8),
+                child: BackdropFilter(
+                  filter: ImageFilter.blur(sigmaX: 4, sigmaY: 4),
+                  child: Center(
+                    child: Icon(
+                      Icons.arrow_back,
+                      color: widget.dominantColor,
+                    ),
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+        const Expanded(child: SizedBox()),
+      ],
     );
   }
 
   Widget buildBanner() {
     final previewBanner = ref.read(newEventProvider.notifier).bannerImage;
+
     if (widget.isPreview!) {
       if (previewBanner != null) {
-        return Container(
-          constraints: const BoxConstraints(maxHeight: 300),
-          child: Image.file(
-            previewBanner,
-            fit: BoxFit.cover,
-            width: double.infinity,
+        return SizedBox(
+          height: 300,
+          width: MediaQuery.of(context).size.width,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Image.file(
+                  previewBanner,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              buildBannerGradient(),
+            ],
           ),
         );
       }
 
-      return Image.asset(
-        defaultBanners[rand],
-        fit: BoxFit.cover,
-        width: double.infinity,
-      );
-    } else {
-      return Container(
-        constraints: const BoxConstraints(maxHeight: 300),
-        child: Image.network(
-          widget.event.bannerPath,
-          fit: BoxFit.cover,
-          width: double.infinity,
+      return SizedBox(
+        height: 300,
+        width: MediaQuery.of(context).size.width,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: Image.asset(
+                defaultBanners[widget.randInt!],
+                fit: BoxFit.cover,
+              ),
+            ),
+            buildBannerGradient(),
+          ],
         ),
       );
+    } else {
+      final newBanner = ref.read(editEventControllerProvider.notifier).bannerImage;
+      if (newBanner == null) {
+        return SizedBox(
+          height: 300,
+          width: MediaQuery.of(context).size.width,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Image.network(
+                  widget.event.bannerPath,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              buildBannerGradient(),
+            ],
+          ),
+        );
+      } else {
+        return SizedBox(
+          height: 300,
+          width: MediaQuery.of(context).size.width,
+          child: Stack(
+            children: [
+              Positioned.fill(
+                child: Image.file(
+                  newBanner,
+                  fit: BoxFit.cover,
+                ),
+              ),
+              buildBannerGradient(),
+            ],
+          ),
+        );
+      }
     }
+  }
+
+  Positioned buildBannerGradient() {
+    return Positioned(
+      bottom: -10,
+      child: Container(
+        width: MediaQuery.of(context).size.width,
+        height: 300,
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            colors: [Colors.transparent, widget.dominantColor],
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            stops: const [0.2, 1],
+          ),
+        ),
+      ),
+    );
   }
 
   Widget buildPhotos(bool isPreview, WidgetRef ref) {

@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:zipbuzz/constants/assets.dart';
-import 'package:zipbuzz/constants/colors.dart';
-import 'package:zipbuzz/constants/styles.dart';
-import 'package:zipbuzz/controllers/user_controller.dart';
+import 'package:zipbuzz/services/location_services.dart';
+import 'package:zipbuzz/utils/constants/assets.dart';
+import 'package:zipbuzz/utils/constants/colors.dart';
+import 'package:zipbuzz/utils/constants/styles.dart';
 import 'package:zipbuzz/widgets/common/snackbar.dart';
 
-class CustomAppBar extends ConsumerStatefulWidget
-    implements PreferredSizeWidget {
+class CustomAppBar extends ConsumerStatefulWidget implements PreferredSizeWidget {
   final bool isSearching;
   final TextEditingController searchController;
   final Function(String) onSearch;
@@ -24,15 +23,14 @@ class CustomAppBar extends ConsumerStatefulWidget
     required this.topPadding,
   });
   @override
-  Size get preferredSize => Size.fromHeight(
-      AppBar().preferredSize.height + (isSearching ? 65 : 5) + topPadding);
+  Size get preferredSize =>
+      Size.fromHeight(AppBar().preferredSize.height + (isSearching ? 65 : 5) + topPadding);
 
   @override
   ConsumerState<CustomAppBar> createState() => _CustomAppBarState();
 }
 
-class _CustomAppBarState extends ConsumerState<CustomAppBar>
-    with SingleTickerProviderStateMixin {
+class _CustomAppBarState extends ConsumerState<CustomAppBar> with SingleTickerProviderStateMixin {
   final city = "";
   final country = "";
 
@@ -43,7 +41,8 @@ class _CustomAppBarState extends ConsumerState<CustomAppBar>
 
   @override
   Widget build(BuildContext context) {
-    final user = ref.read(userProvider)!;
+    // final user = ref.read(userProvider)!;
+
     return AnimatedContainer(
       duration: const Duration(milliseconds: 300),
       height: widget.preferredSize.height,
@@ -60,6 +59,7 @@ class _CustomAppBarState extends ConsumerState<CustomAppBar>
             child: AppBar(
               backgroundColor: AppColors.primaryColor,
               elevation: 0,
+              forceMaterialTransparency: true,
               shape: const RoundedRectangleBorder(
                 borderRadius: BorderRadius.vertical(
                   bottom: Radius.circular(30),
@@ -72,21 +72,24 @@ class _CustomAppBarState extends ConsumerState<CustomAppBar>
                 ),
               ),
               titleSpacing: -5,
-              title: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    "${user.city}, ${user.country}",
-                    style: AppStyles.h5.copyWith(color: Colors.white),
-                  ),
-                  Text(
-                    ref.read(userProvider)!.zipcode,
-                    style: AppStyles.h5.copyWith(
-                      color: Colors.white.withOpacity(0.5),
+              title: Consumer(builder: (context, ref, child) {
+                final userLocation = ref.watch(userLocationProvider);
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "${userLocation.city}, ${userLocation.country}",
+                      style: AppStyles.h5.copyWith(color: Colors.white),
                     ),
-                  )
-                ],
-              ),
+                    Text(
+                      userLocation.zipcode,
+                      style: AppStyles.h5.copyWith(
+                        color: Colors.white.withOpacity(0.5),
+                      ),
+                    )
+                  ],
+                );
+              }),
               actions: [
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 300),
@@ -115,9 +118,7 @@ class _CustomAppBarState extends ConsumerState<CustomAppBar>
             right: 0,
             child: AnimatedSwitcher(
               duration: const Duration(milliseconds: 300),
-              child: widget.isSearching
-                  ? AppBarSearchField(widget: widget)
-                  : const SizedBox(),
+              child: widget.isSearching ? AppBarSearchField(widget: widget) : const SizedBox(),
             ),
           ),
         ],
@@ -145,8 +146,7 @@ class AppBarSearchField extends StatelessWidget {
         style: AppStyles.h4.copyWith(color: Colors.white),
         decoration: InputDecoration(
           hintText: 'Search for an event',
-          hintStyle: AppStyles.h4
-              .copyWith(color: Colors.white.withOpacity(0.7), height: 1),
+          hintStyle: AppStyles.h4.copyWith(color: Colors.white.withOpacity(0.7), height: 1),
           prefixIcon: Padding(
             padding: const EdgeInsets.all(12),
             child: SvgPicture.asset(
